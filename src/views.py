@@ -5,12 +5,12 @@ from flask import Blueprint, request, jsonify
 from models import ProjectModel, DeveloperModel, DeveloperSkillModel, TaskModel, TaskSkillModel, ScheduleModel
 
 project_bp = Blueprint('projects', __name__)
-developer_bp = Blueprint('developers', __name__)
 
 
 @project_bp.route("/projects", methods=["GET", "POST"])
 def projects():
     if request.method == 'GET':
+        # app().logger.info("Helloe world")
         return ProjectModel.get_all_projects()
 
     if request.method == 'POST':
@@ -18,13 +18,19 @@ def projects():
         return ProjectModel.add_project(post_input)
 
 
-@project_bp.route("/project/<project_id>", methods=["GET", "POST"])
+@project_bp.route("/projects/<project_id>", methods=["GET", "POST"])
 def project(project_id):
     if request.method == 'GET':
-        return ProjectModel.get_project_by_id(project_id)
+        return ProjectModel.get_project_details_by_id(project_id)
 
 
-@developer_bp.route("/developers", methods=["GET", "POST"])
+@project_bp.route("/projects/<project_id>/tasks", methods=["GET", "POST"])
+def project_tasks(project_id):
+    if request.method == 'GET':
+        return TaskModel.get_task_details_for_project(project_id)
+
+
+@project_bp.route("/developers", methods=["GET", "POST"])
 def developers():
     if request.method == 'GET':
         return DeveloperModel.get_all_developers()
@@ -37,10 +43,18 @@ def developers():
         return str(developer_id)
 
 
-@developer_bp.route("/developers/<developer_id>", methods=["GET", "POST"])
+@project_bp.route("/developers/<developer_id>", methods=["GET", "POST", "PUT"])
 def developer(developer_id):
     if request.method == 'GET':
-        return DeveloperModel.developer_details_by_id(developer_id)
+        developer_output = DeveloperModel.developer_details_by_id(developer_id)
+
+        return developer_output
+
+    if request.method == 'PUT':
+        post_input = request.get_json()
+        DeveloperModel.update_developer(post_input, developer_id)
+        DeveloperSkillModel.update_skills_for_developer(post_input, developer_id)
+        return "Success"
 
 
 # TODO I have 3 separate db write I should make it acid compliant
@@ -72,7 +86,6 @@ def Tasks():
         if len(viable_developers) == 0:
             return "Resources with required skills are busy please set another date for task using put request"
 
-        developer_id=ScheduleModel.create_schedule_for_task(task_id, viable_developers, post_input)
+        developer_id = ScheduleModel.create_schedule_for_task(task_id, viable_developers, post_input)
 
-        return "Task assigned to developer id:"+str(developer_id)
-
+        return "Task assigned to developer id:" + str(developer_id)

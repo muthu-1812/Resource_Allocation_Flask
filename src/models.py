@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from flask import jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 
 db = SQLAlchemy()
 
@@ -21,6 +22,14 @@ class ProjectModel(db.Model):
     @property
     def get_project_id(self):
         return self.project_id
+
+    def get_project_details_by_id(_id):
+        project_query = ProjectModel.query.filter_by(project_id=_id).first()
+        task_output = TaskModel.get_tasks_names_for_project(_id)
+        result = jsonify(project_query).get_json()
+        result['tasks'] = task_output
+
+        return result
 
     @staticmethod
     def get_all_projects():
@@ -56,15 +65,27 @@ class DeveloperModel(db.Model):
 
     @staticmethod
     def add_developer(post_input):
-        entry = DeveloperModel(developer_name=post_input['developer_name'])
+        entry = post_input.create_object(post_input)
         db.session.add(entry)
         db.session.commit()
         return entry.developer_id
 
+    @staticmethod
+    def update_developer(post_input, developer_id):
+        record = DeveloperModel.query.filter_by(developer_id=developer_id).first()
+        if post_input['developer_name']:
+            record.developer_name = post_input["developer_name"]
+
+        db.session.commit()
+        return record.developer_id
+
     def developer_details_by_id(_id):
         developer_query = DeveloperModel.query.filter_by(developer_id=_id).first()
+        skill_output = DeveloperSkillModel.get_skills_for_developer(_id)
+        result = jsonify(developer_query).get_json()
+        result['skills'] = skill_output
 
-        return jsonify(developer_query)
+        return result
 
     @property
     def get_developer_id(self):
@@ -83,11 +104,40 @@ class DeveloperSkillModel(db.Model):
     developer_id = db.Column(db.Integer, db.ForeignKey("developer.developer_id"))
 
     @staticmethod
+    def get_skills_for_developer(developer_id):
+        db_records = DeveloperSkillModel.query.filter_by(developer_id=developer_id).all()
+        developer_skills = [record.skill_name for record in db_records]
+        return developer_skills
+
+    @staticmethod
     def add_skills_for_developer(post_input, developer_id):
         for skill in post_input['developer_skills']:
             skill_entry = DeveloperSkillModel(skill_name=skill, developer_id=developer_id)
             db.session.add(skill_entry)
         db.session.commit()
+
+    @staticmethod
+    def update_skills_for_developer(post_input, developer_id):
+        db_records = DeveloperSkillModel.query.filter_by(developer_id=developer_id).all()
+
+        updated_skills = post_input['developer_skills']
+
+        existing_skill_names = [record.skill_name for record in db_records]
+
+        delete_skills = list(set(existing_skill_names) - set(updated_skills))
+
+        add_skill = list(set(updated_skills) - set(existing_skill_names))
+
+        for skill in delete_skills:
+            DeveloperSkillModel.query.filter_by(skill_name=skill, developer_id=developer_id).delete()
+
+        for skill in add_skill:
+            skill_entry = DeveloperSkillModel(skill_name=skill, developer_id=developer_id)
+            db.session.add(skill_entry)
+
+        db.session.commit()
+
+        return "Success"
 
     @property
     def get_skill_id(self):
@@ -112,6 +162,7 @@ class TaskModel(db.Model):
     associated_project = db.Column(db.Integer, db.ForeignKey("project.project_id"))
     task_name = db.Column(db.String, unique=True, nullable=False)
     task_priority = db.Column(db.String, nullable=False)
+    skills = db.relationship("TaskSkillModel", lazy=True, backref='task')
 
     # todo below 2 should remove is redundant
     start_date = db.Column(db.DateTime, nullable=True)
@@ -139,6 +190,26 @@ class TaskModel(db.Model):
     @property
     def get_task_id(self):
         return self.task_id
+
+    @staticmethod
+    def get_tasks_names_for_project(_id):
+        db_records = TaskModel.query.filter_by(associated_project=_id).all()
+        tasks = [record.task_name for record in db_records]
+        return tasks
+
+    @staticmethod
+    def get_task_details_for_project(_id):
+        task_records = TaskModel.query.filter_by(associated_project=_id).all()
+
+        # task_records = TaskModel.query \
+        #     .filter_by(associated_project=_id) \
+        #     .join(TaskSkillModel, TaskModel.task_id == TaskSkillModel.task_id, isouter=True) \
+        #     .add_columns(db.func.group_concat(TaskModel.skills).label("count"), TaskModel.skills) \
+        #     .group_by(TaskModel.task_id).all()
+        #
+        # return str(task_records[0].skills)
+
+        return jsonify(task_records)
 
 
 @dataclass()
@@ -197,7 +268,7 @@ class ScheduleModel(db.Model):
         return developers_with_required_skills
 
     @staticmethod
-    def find_busy_developers(post_input,developers_with_required_skills):
+    def find_busy_developers(post_input, developers_with_required_skills):
         start_date = datetime.datetime.fromisoformat(post_input['start_date'])
         end_date = datetime.datetime.fromisoformat(post_input['end_date'])
         busy_developer_records = db.session.query(ScheduleModel.allocated_developer) \
@@ -211,7 +282,7 @@ class ScheduleModel(db.Model):
         return busy_developers
 
     @staticmethod
-    def create_schedule_for_task(task_id,viable_developers,post_input):
+    def create_schedule_for_task(task_id, viable_developers, post_input):
         start_date = datetime.datetime.fromisoformat(post_input['start_date'])
         end_date = datetime.datetime.fromisoformat(post_input['end_date'])
         schedule_entry = ScheduleModel(task_id=task_id, allocated_developer=viable_developers[0],

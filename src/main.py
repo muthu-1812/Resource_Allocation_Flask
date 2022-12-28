@@ -2,7 +2,7 @@ from flask import Flask, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 
 from models import db
-from views import project_bp, developer_bp
+from views import project_bp
 
 
 def create_app():
@@ -15,7 +15,6 @@ def create_app():
 
     app.register_blueprint(home)
     app.register_blueprint(project_bp)
-    app.register_blueprint(developer_bp)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
 
