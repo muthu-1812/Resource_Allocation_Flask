@@ -21,12 +21,14 @@ def projects():
 @project_bp.route("/projects/<project_id>", methods=["GET", "POST"])
 def project(project_id):
     if request.method == 'GET':
+        # app.logger.info("Details requested for project:%s",project_id)
         return ProjectModel.get_project_details_by_id(project_id)
 
 
 @project_bp.route("/projects/<project_id>/tasks", methods=["GET", "POST"])
 def project_tasks(project_id):
     if request.method == 'GET':
+        # app.logger.info("Details requested for task related to project:%s",project_id)
         return TaskModel.get_task_details_for_project(project_id)
 
 
@@ -38,6 +40,8 @@ def developers():
     if request.method == 'POST':
         post_input = request.get_json()
         developer_id = DeveloperModel.add_developer(post_input)
+        # app.logger.info("Developer created with id:%s",developer_id)
+
         DeveloperSkillModel.add_skills_for_developer(post_input, developer_id)
 
         return str(developer_id)
@@ -66,17 +70,23 @@ def Tasks():
     if request.method == 'POST':
 
         post_input = request.get_json()
+        start_date = datetime.datetime.fromisoformat(post_input['start_date'])
+        end_date = datetime.datetime.fromisoformat(post_input['end_date'])
 
-        task_id = TaskModel.add_task(post_input)
+        if end_date < start_date:
+            # app.logger.info("User input has invalid dates")
+            return "Invalid dates"
+
+        task_id = TaskModel.add_task(post_input,start_date,end_date)
 
         TaskSkillModel.add_skills_for_task(post_input['task_skills'], task_id)
 
-        developers_with_required_skills = ScheduleModel.find_developers_with_matching_skills(post_input)
+        developers_with_required_skills = DeveloperSkillModel.find_developers_with_matching_skills(post_input)
 
         if len(developers_with_required_skills) == 0:
             return "No resources with required skills"
 
-        busy_developers = ScheduleModel.find_busy_developers(post_input, developers_with_required_skills)
+        busy_developers = DeveloperSkillModel.find_busy_developers(post_input, developers_with_required_skills)
 
         # app.logger.info("Busy developers %s", str(busy_developers))
 
@@ -89,3 +99,9 @@ def Tasks():
         developer_id = ScheduleModel.create_schedule_for_task(task_id, viable_developers, post_input)
 
         return "Task assigned to developer id:" + str(developer_id)
+
+
+@project_bp.route("/schedules", methods=["GET", "POST"])
+def Schedules():
+    if request.method == 'GET':
+        return ScheduleModel.get_all_schedules()

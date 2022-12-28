@@ -65,10 +65,10 @@ class DeveloperModel(db.Model):
 
     @staticmethod
     def add_developer(post_input):
-        entry = post_input.create_object(post_input)
+        entry = DeveloperModel(developer_name=post_input['developer_name'])
         db.session.add(entry)
         db.session.commit()
-        return entry.developer_id
+        return str(entry.developer_id)
 
     @staticmethod
     def update_developer(post_input, developer_id):
@@ -147,6 +147,25 @@ class DeveloperSkillModel(db.Model):
     def get_developer_id(self):
         return self.developer_id
 
+    @staticmethod
+    def find_developers_with_matching_skills(post_input):
+        required_skills = post_input["task_skills"]
+
+        records = db.session.query(DeveloperSkillModel.developer_id,
+                                   db.func.count(DeveloperSkillModel.developer_id).label("skill_count")) \
+            .filter(DeveloperSkillModel.skill_name.in_(required_skills)) \
+            .group_by(DeveloperSkillModel.developer_id) \
+            .order_by("skill_count") \
+            .all()
+
+        developers_with_required_skills = []
+
+        for record in records:
+            # app.logger.info(str(record['skill_count']) + " " + str(record['developer_id']))
+            developers_with_required_skills.append(record['developer_id'])
+
+        return developers_with_required_skills
+
 
 @dataclass()
 class TaskModel(db.Model):
@@ -174,9 +193,7 @@ class TaskModel(db.Model):
         return jsonify(query)
 
     @staticmethod
-    def add_task(post_input):
-        start_date = datetime.datetime.fromisoformat(post_input['start_date'])
-        end_date = datetime.datetime.fromisoformat(post_input['end_date'])
+    def add_task(post_input,start_date,end_date):
 
         task_entry = TaskModel(task_name=post_input['task_name'], associated_project=post_input['associated_project'],
                                task_priority=post_input['task_priority'],
@@ -249,25 +266,6 @@ class ScheduleModel(db.Model):
     end_date = db.Column(db.DateTime, nullable=True)
 
     @staticmethod
-    def find_developers_with_matching_skills(post_input):
-        required_skills = post_input["task_skills"]
-
-        records = db.session.query(DeveloperSkillModel.developer_id,
-                                   db.func.count(DeveloperSkillModel.developer_id).label("skill_count")) \
-            .filter(DeveloperSkillModel.skill_name.in_(required_skills)) \
-            .group_by(DeveloperSkillModel.developer_id) \
-            .order_by("skill_count") \
-            .all()
-
-        developers_with_required_skills = []
-
-        for record in records:
-            # app.logger.info(str(record['skill_count']) + " " + str(record['developer_id']))
-            developers_with_required_skills.append(record['developer_id'])
-
-        return developers_with_required_skills
-
-    @staticmethod
     def find_busy_developers(post_input, developers_with_required_skills):
         start_date = datetime.datetime.fromisoformat(post_input['start_date'])
         end_date = datetime.datetime.fromisoformat(post_input['end_date'])
@@ -293,3 +291,9 @@ class ScheduleModel(db.Model):
         db.session.commit()
 
         return schedule_entry.allocated_developer
+
+    @staticmethod
+    def get_all_schedules():
+        query = ScheduleModel.query.all()
+        return jsonify(query)
+
