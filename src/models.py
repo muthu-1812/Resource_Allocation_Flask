@@ -220,14 +220,14 @@ class TaskModel(db.Model):
 
         # task_records = TaskModel.query \
         #     .filter_by(associated_project=_id) \
-        #     .join(TaskSkillModel, TaskModel.task_id == TaskSkillModel.task_id, isouter=True) \
-        #     .add_columns(db.func.group_concat(TaskModel.skills).label("count"), TaskModel.skills) \
+        #     .join(TaskSkillModel, TaskModel.task_id == TaskSkillModel.task_id) \
+        #     .add_columns(db.func.group_concat(TaskSkillModel.task_id).label("skills")) \
         #     .group_by(TaskModel.task_id).all()
-        #
+
         # return str(task_records[0].skills)
 
         return jsonify(task_records)
-
+#
 
 @dataclass()
 class TaskSkillModel(db.Model):

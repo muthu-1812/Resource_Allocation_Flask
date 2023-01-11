@@ -1,0 +1,46 @@
+query = ProjectModel.query(project_id).filter(ProjectModel.project_id.in_((1, 2))).all()
+
+query = ProjectModel.query.filter(ProjectModel.project_id == project_id)
+
+
+SELECT *
+FROM developer_skill
+join developer on developer.developer_id=developer_skill.developer_id
+SELECT *
+FROM developer_skill
+join developer on developer.developer_id=developer_skill.developer_id
+ 
+ 
+ SELECT * from task
+where associated_project =1
+
+SELECT *,group_concat(DISTINCT skill_name) as skills from task
+join task_skill on task.task_id=task_skill.task_id
+where associated_project =1	
+
+
+TaskModel.query \
+            .filter_by(associated_project=_id) \
+            .join(TaskSkillModel, TaskModel.task_id == TaskSkillModel.task_id, isouter=True) \
+            .add_columns(db.func.count(TaskModel.skills).label("count")) \
+            .group_by(TaskModel.task_id).all()
+			
+			
+
+        task_records = TaskModel.query \
+            .filter_by(associated_project=_id) \
+            .join(TaskSkillModel, TaskModel.task_id == TaskSkillModel.task_id, isouter=True) \
+            .group_by(TaskModel.task_id).all()
+
+        return str(task_records[0].skills)
+
+        task_records = TaskModel.query \
+            .filter_by(associated_project=_id) \
+            .join(TaskSkillModel, TaskModel.task_id == TaskSkillModel.task_id, isouter=True) \
+            .add_columns(db.func.group_concat(TaskModel.skills).label("count"), TaskModel.skills) \
+            .group_by(TaskModel.task_id).all()
+
+        return str(task_records[0].skills)
+		
+		
+str(task_records[0].skills[0].skill_name)
